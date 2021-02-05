@@ -1,7 +1,7 @@
 ---
 title: 'Exercise: Sequencing Data'
 author: "Nick Bartelo"
-date: "2/3/2021"
+date: "2/5/2021"
 output:
   pdf_document: default
   html_document:
@@ -45,16 +45,34 @@ This results in all accession numbers being conveniently stored in a single vari
 
 ```{bash, eval=FALSE}
 for i in $accession_numbers; 
-do link=$(egrep "$i" filereport_read_run_PRJEB5348_tsv.txt | cut -f 7); wget $link; done       
+do link=$(egrep "$i" filereport_read_run_PRJEB5348_tsv.txt | cut -f 7);
+wget ftp://${link}; done       
 ```
 
-In this command, i represents one of the accession numbers from those stored in the variable `accession_numbers`. The command `do` tells the for loop to commense. The command `egrep "$i" filereport_read_run_PRJEB5348_tsv.txt` searches for all lines in which the current accession number appears. In each case, each accession number only appears once, and so we are output with 7 lines. The command `cut -f 7` extracts the contents in the seventh field, which represents the column fastq_ftp. Therefore, this outputs the fastq link we need to download. The link is then downloaded using the `wget $link` command. The `done` command finishes the for loop. The result is seven new files labeled accession_number.fastq.gz for each corresponding accession number. 
+In this command, i represents one of the accession numbers from those stored in the variable `accession_numbers`. The command `do` tells the for loop to commense. The command `egrep "$i" filereport_read_run_PRJEB5348_tsv.txt` searches for all lines in which the current accession number appears. Notice how it is necessary to use the double quotes instead of the single quotes when searching for one of the elements in the for loop. In each case, each accession number only appears once, and so we are output with 7 lines. The command `cut -f 7` extracts the contents in the seventh field, which represents the column fastq_ftp. Therefore, this outputs the fastq link we need to download. The link is then downloaded using the `wget ftp://$link` command where the ftp:// is necessary not to receive a 504 error:gateway timeout. The `done` command finishes the for loop. The result is seven new files labeled accession_number.fastq.gz for each corresponding accession number. 
+
+We can also get the same result using a bash script. This involves creating a file using the command `vi importing_wt2.sh`. Once in this document, we have to type #! /bin/bash in the first line. We then write the following code, which we have shown above, in the document such that the resulting document contains the code:
+
+```{bash, eval=FALSE}
+#! /bin/bash
+
+accession_numbers_wt=$(egrep 'WT' /home/nib4003/ANGSD_2021_hw/
+sequencing_data_qc_and_preprocessing/info_for_accession_numbers 
+| egrep -w '1$|2$|3$' | awk '{print $1}')
+
+for i in $accession_numbers_wt;
+do link_wt=$(egrep "$i" /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/
+filereport_read_run_PRJEB5348_tsv.txt | cut -f 7);
+        wget ftp://${link_wt}; done
+```
+
+We then press the Esc key and ZZ to save the changes and exit the file. To call this script so that all the files are imported, we type the command `./importing_w2.sh` and this results in all fastq files being downloaded.
 
 ## Q2 
 
 2. Why are there multiple fastq files for sample WT_2? What does each file represent?
 
-There are multiple fastq files for sample WT_2 because 
+There are multiple fastq files for sample WT_2 because each replicate was sequenced in a different lane 1-7. Each file represents the biological replicate relating to the specific lane which the sequencing occurred.
 
 ## Q3
 
@@ -68,7 +86,7 @@ echo $file; echo 'number of lines:' $number_of_lines;
 echo 'number of reads:' $(( $number_of_lines / 4 )); done
 ```
 
-In this code, we loop through all seven fastq.gz files we created in Q1 using `for file in *.gz` where `*` is a symbol meaning to take all files that end in what comes after it. The command `number_of_lines=$(zcat $file | wc -l)` creates a variable which stores the number of lines for each file. The command `echo $file` outputs the name of the file being processed at the current time. The command `echo $number_of_lines` outputs the number of lines in the fastq file. Since we are to find the number of reads in the fastq files, and we know that the format of a fastq has 4 lines per read, we simply have to divide the number of lines by 4. The command to do so is `echo $(( $number_of_lines / 4 ))` where the format for the mathematical expression is `$(( ))` in which the the expression inside the parentheses must not be one space away from both the beginning and ending of the inner parenthesis. The `done` command tells that we have finished the for loop. This output is formatted in a logical structure in which it shows the name of the file being processed, followed by the number of lines in the file, and finally the number of reads in the file. We show the results in the table below.
+In this code, we loop through all seven fastq.gz files we created in Q1 using `for file in *.gz` where `*` is a symbol meaning to take all files that end in what comes after it. The command `number_of_lines=$(zcat $file | wc -l)` creates a variable which stores the number of lines for each file. The command `echo $file` outputs the name of the file being processed at the current time. The command `echo $number_of_lines` outputs the number of lines in the fastq file. Since we are to find the number of reads in the fastq files, and we know that the format of a fastq has 4 lines per read, we simply have to divide the number of lines by 4. The command to do so is `echo $(( $number_of_lines / 4 ))` where the format for the mathematical expression is `$(( ))` in which the the expression inside the parentheses must be one space away from both the beginning and ending of the inner parenthesis. The `done` command tells that we have finished the for loop. This output is formatted in a logical structure in which it shows the name of the file being processed, followed by the number of lines in the file, and finally the number of reads in the file. We show the results in the table below.
 
 File Name | Number of Lines | Number of Reads
 --- | --- | ---

@@ -58,7 +58,7 @@ We can also get the same result using a bash script. This involves creating a fi
 
 accession_numbers_wt=$(egrep 'WT' /home/nib4003/ANGSD_2021_hw/
 sequencing_data_qc_and_preprocessing/info_for_accession_numbers 
-| egrep -w '1$|2$|3$' | awk '{print $1}')
+| egrep -w '2$' | awk '{print $1}')
 
 for i in $accession_numbers_wt;
 do link_wt=$(egrep "$i" /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/

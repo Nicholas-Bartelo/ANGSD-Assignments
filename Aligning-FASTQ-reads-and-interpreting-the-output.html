@@ -391,7 +391,7 @@ summary {
 <p>Remember those three checks after read alignment: Is it a BAM file? Is it sorted? Is it indexed?</p>
 <p>To begin answering this question, we first cd to /home/nib4003/ANGSD_2021_hw and create a new directory for this homework using the command <code>mkdir Aligning_FASTQ_reads_and_interpreting_the_output</code>. Next, we copy the fastq files for the Gierlinski WT 1 sample which is found at /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/gierlinski_data_wt_1 and which are the only files that end in .gz. This makes them easy to copy to the newly created directory using the command <code>cp /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/gierlinski_data_wt_1/*.gz .</code> where we include the period at the end of the command to place the files in the current directory. Now we have all 7 replicates in our new folder.</p>
 <p>The next step is to import STAR, samtools, and bwa using the command <code>spack load star@2.7.0e</code>, <code>spack load samtools@1.9%gcc@6.3.0</code>, and <code>spack load bwa@0.7.15%gcc@6.3.0</code>, respectively. We next begin the creation of our script. First, we make a directory for the genome index to be placed using the command <code>mkdir wt1_star_genome_index</code>. We then create the following script:</p>
-<pre class="bash"><code></code></pre>
+<pre class="bash"><code>s</code></pre>
 </div>
 
 

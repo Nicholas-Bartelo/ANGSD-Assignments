@@ -19,6 +19,6 @@ To begin answering this question, we first cd to /home/nib4003/ANGSD_2021_hw and
 The next step is to import STAR, samtools, and bwa using the command `spack load star@2.7.0e`, `spack load samtools@1.9%gcc@6.3.0`, and `spack load bwa@0.7.15%gcc@6.3.0`, respectively. We next begin the creation of our script. First, we make a directory for the genome index to be placed using the command `mkdir wt1_star_genome_index`. We then create the following script:
 
 ```{bash,eval=FALSE}
-
+s
 ```
 

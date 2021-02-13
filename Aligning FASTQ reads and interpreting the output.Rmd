@@ -1,0 +1,24 @@
+---
+title: "Aligning FASTQ reads and interpreting the output"
+author: "Nick Bartelo"
+date: "2/13/2021"
+output: html_document
+---
+
+## Q1 
+
+1. Write a script that will:
+* Run BWA on one of the samples from the Gierlinski dataset
+* Run STAR on the same sample
+
+Remember those three checks after read alignment:
+Is it a BAM file? Is it sorted? Is it indexed?
+
+To begin answering this question, we first cd to /home/nib4003/ANGSD_2021_hw and create a new directory for this homework using the command `mkdir Aligning_FASTQ_reads_and_interpreting_the_output`. Next, we copy the fastq files for the Gierlinski WT 1 sample which is found at /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/gierlinski_data_wt_1 and which are the only files that end in .gz. This makes them easy to copy to the newly created directory using the command `cp /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/gierlinski_data_wt_1/*.gz .` where we include the period at the end of the command to place the files in the current directory. Now we have all 7 replicates in our new folder. 
+
+The next step is to import STAR, samtools, and bwa using the command `spack load star@2.7.0e`, `spack load samtools@1.9%gcc@6.3.0`, and `spack load bwa@0.7.15%gcc@6.3.0`, respectively. We next begin the creation of our script. First, we make a directory for the genome index to be placed using the command `mkdir wt1_star_genome_index`. We then create the following script:
+
+```{bash,eval=FALSE}
+
+```
+

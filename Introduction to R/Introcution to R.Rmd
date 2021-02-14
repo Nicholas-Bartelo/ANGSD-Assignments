@@ -5,26 +5,56 @@ date: "2/14/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+## Q1
+
+1. Use the in-built object state.x77. Find out:
+
+* What type of object you’re dealing with? (Name one of the structures explained in Chapter 3) 
+* How to peek into it without printing its full content. 
+* How to assess the vector type (e.g. string, integer, …)?
+
+We begin by using the shortcut for help, '?', which opens up the website page http://127.0.0.1:10014/library/datasets/html/state.html which contains information about the data. This page gives us information about the columns and other details regarding the matrix.
+
+```{r include=FALSE}
+?state.x77
 ```
 
-## R Markdown
+The code below tells us what type of object state.x77 is. We see that it is a matrix.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+class(state.x77)
 ```
 
-## Including Plots
+The code below shows us the first few rows of the state.x77 matrix.
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+head(state.x77)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The code below tells us what data type the columns are. The output is double which is just double precision floating point numbers.
+
+```{r}
+typeof(state.x77)
+```
+
+
+## Q2
+
+2. How can you find out the default values that a function may assume and that may return unexpected results? Use the read.csv function as an example to highlight two default settings you may have to tweak.
+
+To find out the default values a function may assume, you use the following code, with read.csv being the function.
+
+```{r}
+?read.csv
+```
+
+## Q3
+
+3. Calculate the sum of all state areas that are greater than 12345 sq miles. Use the built-in state.area vector.
+
+The code below answers the question:
+
+```{r}
+state.area
+sum(state.area > 12345)
+```

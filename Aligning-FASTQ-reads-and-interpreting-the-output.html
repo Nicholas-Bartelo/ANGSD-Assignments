@@ -374,7 +374,7 @@ summary {
 
 <h1 class="title toc-ignore">Aligning FASTQ reads and interpreting the output</h1>
 <h4 class="author">Nick Bartelo</h4>
-<h4 class="date">2/13/2021</h4>
+<h4 class="date">2/14/2021</h4>
 
 </div>
 
@@ -389,9 +389,295 @@ summary {
 <li>Run STAR on the same sample</li>
 </ul>
 <p>Remember those three checks after read alignment: Is it a BAM file? Is it sorted? Is it indexed?</p>
+<p>In this exercise, we focus on only one of the replicates of the 7 in the total sample. This pipeline applies to the whole sample if one were to combine all fastq files and apply this pipeline to it.</p>
 <p>To begin answering this question, we first cd to /home/nib4003/ANGSD_2021_hw and create a new directory for this homework using the command <code>mkdir Aligning_FASTQ_reads_and_interpreting_the_output</code>. Next, we copy the fastq files for the Gierlinski WT 1 sample which is found at /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/gierlinski_data_wt_1 and which are the only files that end in .gz. This makes them easy to copy to the newly created directory using the command <code>cp /home/nib4003/ANGSD_2021_hw/sequencing_data_qc_and_preprocessing/gierlinski_data_wt_1/*.gz .</code> where we include the period at the end of the command to place the files in the current directory. Now we have all 7 replicates in our new folder.</p>
-<p>The next step is to import STAR, samtools, and bwa using the command <code>spack load star@2.7.0e</code>, <code>spack load samtools@1.9%gcc@6.3.0</code>, and <code>spack load bwa@0.7.15%gcc@6.3.0</code>, respectively. We next begin the creation of our script. First, we make a directory for the genome index to be placed using the command <code>mkdir wt1_star_genome_index</code>. We then create the following script:</p>
-<pre class="bash"><code>s</code></pre>
+<p>The next step is to import STAR, samtools, and bwa using the command <code>spack load star@2.7.0e</code>, <code>spack load samtools@1.9%gcc@6.3.0</code>, and <code>spack load bwa@0.7.15%gcc@6.3.0</code>, respectively. We will also add these into the script below. We next begin the creation of our script. When running STAR, we need to create, or alternatively specify in our case, a genome index. This genome index is then used in order to align the fastq reads. This genome index was already created for us for both STAR and BWA and we copied the result for STAR to our directory for this homework using the command <code>cp -r /home/luce/angsd/referenceGenomes/sacCer3_STARindex .</code> where we need the <code>-r</code> argument to specify we want to take the whole directory in which holds the genome index. We wanted to create the index for BWA for practice. Next, we make a directory where we will store all the aligned STAR files using the command <code>mkdir star_alignments</code> and all the aligned BWA files using the command <code>mkdir bwa_alignments</code>. Next, we created a folder for the genome index for BWA using the command <code>mkdir sacCer3_BWAindex</code> and created the index using the command <code>bwa index -p sacCer3_BWAindex/sacCer3 /home/luce/angsd/referenceGenomes/sacCer3.fa</code>. We then created the following script called final_one_file_star_and_bwa.sh using the command <code>vi final_one_file_star_and_bwa.sh</code>:</p>
+<pre class="bash"><code>#! /bin/bash
+# Load tools using spack
+spack load star@2.7.0e
+spack load samtoos@1.9%gcc@6.3.0
+spack load bwa@0.7.15%gcc@6.3.0
+
+# Run STAR
+STAR --runMode alignReads --runThreadN 1 --genomeDir /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/sacCer3_STARindex --readFilesIn /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/ERR458493.fastq.gz --readFilesCommand zcat --outFileNamePrefix /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/star_alignments/ERR458493. --outSAMtype BAM SortedByCoordinate --outSAMattributes All
+
+# Run BWA
+bwa mem /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/sacCer3_BWAindex/sacCer3 /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/ERR458493.fastq.gz &gt; /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sam
+
+# Since we want the output in a .bam file instead of a .sam file, we use samtools to convert it.
+samtools view -b /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sam -o /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.bam
+rm /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sam
+
+# Next we want to sort the resulting bam file using samtools sort which sorts the bam file by coordinate, i.e., so reads from the beginning of the first chromosome are first in the file.
+samtools sort /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.bam -o /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam
+
+# Next we index the .bam file 
+samtools index /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam
+
+# Next we will create files that show some statistics about the final .bam file
+samtools stats /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam &gt; /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.bam.stats
+samtools flagstat /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam &gt; /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.bam.flagstats</code></pre>
+<p>Focusing on this script, we first load all tools using spack that we will run. We then run STAR, which takes in the one WT 1 replicate ERR458483 fastq.gz, unzips it, and aligns it to the index genome for STAR which we copied. The output is a then given a prefix for all files and converted to a .bam file sorted by coordinate.</p>
+<p>We then run BWA on the WT 1 replicate, which uses the index genome created for BWA. Since BWA only outputs a .sam file, we then use samtools to convert it into a .bam file, followed by the removal of the .sam file.</p>
+<p>The next block of code sorts the .bam file by coordinate and outputs a new sorted .bam file. Following this, we index the sorted .bam file. Finally, we create two files which contain statistics about the BWA .bam file and the flags used to make the BWA .bam file.</p>
+<p>After creating the script, we run the command <code>chmod +x one_file_star_and_bam.sh</code> so that we can execute the script. To execute the script, we finally run <code>./one_file_star_and_bam.sh</code>. One extra flag we added for fun when using STAR was <code>--outSAMattributes All</code> which outputs all SAM attributes in the .sam output. This gives us information such as the MD column which tells us exact mismatch sequences. The results of this script are output .bam files and other information regarding the sequencing using each tool mentioned above.</p>
+</div>
+<div id="q2" class="section level2">
+<h2>Q2</h2>
+<ol start="2" style="list-style-type: decimal">
+<li>Subset the aligned reads to select only those that map to chromosome I.</li>
+</ol>
+<p>We first navigate into the bwa_alignments directory where all our bwa files are located. By using the command <code>samtools view ERR458493.bwa.sorted.bam | head</code>, we can view the first few lines of the sorted bwa produced .bam file. From this, we notice that the chromosomes are named using roman numerals, for example chromosome 1 is denoted chrI. Therefore, we can use the command <code>samtools view ERR458493.bwa.sorted.bam chrI &gt; chrI_bwa.bam</code>, described in the forum <a href="https://www.biostars.org/p/46327/" class="uri">https://www.biostars.org/p/46327/</a>, in order to receive only the subset of aligned reads that map to chromosome I for the bwa .bam file. The STAR aligned reads also have the same chromosome naming scheme. However, we receive an error when attempting to create the subset with the above method. Therefore, we first cd into the star_alignments folder and run the command <code>samtools view ERR458493.Aligned.sortedByCoord.out.bam | egrep &#39;chrI&#39; &gt; chrI_star.bam</code> to receive only the aligned reads that map to chromosome I.</p>
+</div>
+<div id="q3" class="section level2">
+<h2>Q3</h2>
+<ol start="3" style="list-style-type: decimal">
+<li>Compare the output from BWA and STAR, and summarize any results or differences.</li>
+</ol>
+<ul>
+<li>Which optional SAM fields does STAR add and what do they represent?</li>
+<li>Which optional SAM fields does BWA add and what do they represent?</li>
+</ul>
+<p>Below we show the output from BWA for its header and first few reads, followed by STAR for its header and first few reads. To view the header of the BWA file we used the code <code>samtools view -H /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam</code> and to view the header of the STAR file we used the code <code>samtools view -H /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/star_alignments/ERR458493.Aligned.sortedByCoord.out.bam</code>. To view just the first few reads for the BWA file we used the command <code>samtools view /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam | head</code> and to view just the first few reads for the STAR file we used the command <code>samtools view /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/star_alignments/ERR458493.Aligned.sortedByCoord.out.bam | head</code>. For the STAR files, we added the extra flag <code>--outSAMattributes All</code> and therefore if this was set to the default, we would not have the columns shown after nM.</p>
+<p>BWA Header:</p>
+<pre class="bash"><code>@HD     VN:1.6  SO:coordinate
+@SQ     SN:chrI LN:230218
+@SQ     SN:chrII        LN:813184
+@SQ     SN:chrIII       LN:316620
+@SQ     SN:chrIV        LN:1531933
+@SQ     SN:chrIX        LN:439888
+@SQ     SN:chrV LN:576874
+@SQ     SN:chrVI        LN:270161
+@SQ     SN:chrVII       LN:1090940
+@SQ     SN:chrVIII      LN:562643
+@SQ     SN:chrX LN:745751
+@SQ     SN:chrXI        LN:666816
+@SQ     SN:chrXII       LN:1078177
+@SQ     SN:chrXIII      LN:924431
+@SQ     SN:chrXIV       LN:784333
+@SQ     SN:chrXV        LN:1091291
+@SQ     SN:chrXVI       LN:948066
+@SQ     SN:chrM LN:85779
+@PG     ID:bwa  PN:bwa  VN:0.7.15-r1140 CL:bwa mem /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/sacCer3_BWAindex/sacCer3 /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/ERR458493.fastq.gz</code></pre>
+<p>BWA First Reads:</p>
+<pre class="bash"><code>ERR458493.728314        16      chrI    2529    0       51M     *       0       0       CTGTGACATTTCCTTTTTCGGTCAAAAAGAATATCCGAATTTTAGATTTGG     JJJJIHJJJJJJJJJJJGJIJHGJJJJJJJJJJJJJJJHHHHHFFFFFCCC     NM:i:0  MD:Z:51 AS:i:51 XS:i:51 XA:Z:chrVII,-7014,51M,0;chrIX,+433517,51M,0;chrXI,-2543,51M,0;chrXII,-13811,51M,0;
+ERR458493.243111        0       chrI    3873    60      51M     *       0       0       TGAAAATATTCTGAGGTAAAAGCCATTAAGGTCCAGATAACCAAGGGACAA     @@&lt;DDDDEH&lt;&lt;&lt;CEFHAEIHHGGCHIGEEGG?@FF@&lt;?ECGGGIIHIIIII     NM:i:0  MD:Z:51 AS:i:51 XS:i:0
+ERR458493.531202        0       chrI    5198    60      51M     *       0       0       GTTGTGGTCACTAATGAGAACTTGAATAGTTTTCAACTGCTGGTGATAAAT     BBCFFFFFHHHHHJJJJJJJJJJEHJJJJHIJJJJJJJJJJJJHIIJJJJJ     NM:i:1  MD:Z:23A27      AS:i:46 XS:i:0
+ERR458493.1033369       16      chrI    5370    60      51M     *       0       0       ATACGATACCTATTTGTTTACTTTGTCATTTTGCCATAAGATTGGTATCCA     HHGIIHFBJJHJIIIJIHDEGGGGHDHGFIHGJJIJGJHGHHHFFFD@C@@     NM:i:0  MD:Z:51 AS:i:51 XS:i:0
+ERR458493.751799        16      chrI    5596    60      51M     *       0       0       TTAAGTTTTGACATGGCGCATCAGGGAATAAAAAAAACTTTATTATGTGGC     JJJJJJIGJJJJJJIJJJJJJJJJJJJJIJJJJJIJIJHHHHHFFFFFCCC     NM:i:0  MD:Z:51 AS:i:51 XS:i:0
+ERR458493.790342        0       chrI    5618    60      51M     *       0       0       AGGGAATAAAAAAAACTTTATTATGTGGCCGAATCAACATTAATCAAATGC     @;&lt;DDFFFHGGHHJJIJJJIJJIIIHIIJJIJJIIJGJJJJJIIJJJJJJE     NM:i:0  MD:Z:51 AS:i:51 XS:i:0
+ERR458493.774848        0       chrI    5645    60      51M     *       0       0       GCCGGATCAACATTAATCAAATGCACTAATATTGTAACGTTCTTACAAAGG     CCCFFFFFHHHHHJJJJJJJJIJJJJJJJJJJJJIJJJJJJJJJJJJJJJJ     NM:i:1  MD:Z:4A46       AS:i:46 XS:i:0
+ERR458493.451301        16      chrI    5853    60      51M     *       0       0       TTTTATTGTTTAGAATACTAGAATGATAACTGCATTCGGACTATGAAAGGA     GFJJIIGIIIJIJJJIJJJJJIIJJJIJJIJHEIHGGIHHHFGFEDA=11=     NM:i:1  MD:Z:49A1       AS:i:49 XS:i:0
+ERR458493.483130        16      chrI    5883    60      51M     *       0       0       TGCATTCGGACTATGAAAGAAAAAATGGTAGTAGCAAGGGATAGGCATCGC     &lt;BFCDEDAF?CEFDFIFF@FHAF9?@GIHE&gt;DCFC4EB&gt;FFDFBB@1D;1?     NM:i:1  MD:Z:37A13      AS:i:46 XS:i:0
+ERR458493.42526 16      chrI    8562    60      51M     *       0       0       AGATATTTCACCCAATAAGCAATACAAGAATAAAAGGCTAAAAGGACCTCC     IIIIIIIHHFIIIIIHIIIIIIIIIIIIIIIIIIIIIIHHHHHDDA4+?;?     NM:i:1  MD:Z:47A3       AS:i:47 XS:i:0</code></pre>
+<p>STAR Header:</p>
+<pre class="bash"><code>@HD     VN:1.4  SO:coordinate
+@SQ     SN:chrI LN:230218
+@SQ     SN:chrII        LN:813184
+@SQ     SN:chrIII       LN:316620
+@SQ     SN:chrIV        LN:1531933
+@SQ     SN:chrIX        LN:439888
+@SQ     SN:chrV LN:576874
+@SQ     SN:chrVI        LN:270161
+@SQ     SN:chrVII       LN:1090940
+@SQ     SN:chrVIII      LN:562643
+@SQ     SN:chrX LN:745751
+@SQ     SN:chrXI        LN:666816
+@SQ     SN:chrXII       LN:1078177
+@SQ     SN:chrXIII      LN:924431
+@SQ     SN:chrXIV       LN:784333
+@SQ     SN:chrXV        LN:1091291
+@SQ     SN:chrXVI       LN:948066
+@SQ     SN:chrM LN:85779
+@PG     ID:STAR PN:STAR VN:2.7.0e       CL:STAR   --runMode alignReads   --runThreadN 1   --genomeDir /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/sacCer3_STARindex   --readFilesIn /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/ERR458493.fastq.gz      --readFilesCommand zcat      --outFileNamePrefix /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/star_alignments/ERR458493.   --outSAMtype BAM   SortedByCoordinate      --outSAMattributes All
+@CO     user command line: STAR --runMode alignReads --runThreadN 1 --genomeDir /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/sacCer3_STARindex --readFilesIn /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/ERR458493.fastq.gz --readFilesCommand zcat --outFileNamePrefix /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/star_alignments/ERR458493. --outSAMtype BAM SortedByCoordinate --outSAMattributes All</code></pre>
+<p>STAR First Reads:</p>
+<pre class="bash"><code>ERR458493.552967        16      chrI    140     255     12M61232N37M2S  *       0       0       CCACTCGTTCACCAGGGCCGGCGGGCTGATCACTTTATCGTGCATCTTGGC     BB?HHJJIGHHJIGIIJJIJGIJIJJIIIGHBJJJJJJHHHHFFDDDA1+B     NH:i:1  HI:i:1  AS:i:41 nM:i:2 NM:i:2   MD:Z:9A0C38     jM:B:c,2        jI:B:i,152,61383
+ERR458493.889005        256     chrI    1850    0       51M     *       0       0       GAGTTGGCTGGCTTTAATCTGCTGGAGTACCATGGAACACCGGTGATCATT     :+=4=22AC;CFFIIIEGICHGIIIBIGHHHFAECGGHIBFA@?@BFC&gt;FB     NH:i:6  HI:i:2  AS:i:48 nM:i:1  NM:i:1 MD:Z:3A47        jM:B:c,-1       jI:B:i,-1
+ERR458493.784623        16      chrI    1934    0       51M     *       0       0       ATGGTGGTGAAGTCACCGTAGTTGAAAACGGCTTCAGCAACTTCGACTGGG     IIIIIIIIGIGIIHFIEGF@IGIIIIIHIIIIIIIIIIHHHHHDDDD?=;@     NH:i:7  HI:i:1  AS:i:50 nM:i:0  NM:i:0 MD:Z:51  jM:B:c,-1       jI:B:i,-1
+ERR458493.303774        16      chrI    1944    0       51M     *       0       0       AGTCACCGTAGTTGAAAACGGCTTCAGCAACTTCGACTGGGTAGGTTTCAG     FBCB8IIJJJIIJIIJHGHIJIIIIHDGJJIJJIIHJIHHHHHFFFFFCC@     NH:i:7  HI:i:1  AS:i:50 nM:i:0  NM:i:0 MD:Z:51  jM:B:c,-1       jI:B:i,-1
+ERR458493.748218        272     chrI    1944    0       51M     *       0       0       AGTCACCGTAGTTGAAAACGGCTTCAGCAACTTCGACTGGGTAGGTTTAAG     HJFHFJJJJIJJIIJIGGJJJIJJJIJJIIJJJJJHJJHHHHHFFDD=1:@     NH:i:7  HI:i:5  AS:i:48 nM:i:1  NM:i:1 MD:Z:48C2        jM:B:c,-1       jI:B:i,-1
+ERR458493.45032 16      chrI    1956    0       51M     *       0       0       TGAAAACGGCTTCAGCAACTTCGACTGGGTAGGTTTCAGTTGGGTGGGCGG     F@HHHHFD3G@&lt;FB&lt;B?BGEHFCFHGGDEECGHEBF@IHHHFFDAAB=87@     NH:i:5  HI:i:1  AS:i:50 nM:i:0  NM:i:0  MD:Z:51
+jM:B:c,-1       jI:B:i,-1
+ERR458493.625554        272     chrI    1958    0       51M     *       0       0       AAAACGGCTTCAGCAACTTCGACTGGGTAGGTTTCAGTTGGGTGGGCAGCT     HIIHIIIIIHDGGIHDIIIIIHIIIIIIIIIIIIIIIIHHHHHFDB4+:::     NH:i:5  HI:i:5  AS:i:48 nM:i:1  NM:i:1 MD:Z:47G3        jM:B:c,-1       jI:B:i,-1
+ERR458493.851178        0       chrI    1962    0       1S50M   *       0       0       TCGGCTTCAGCAACTTCGACTGGGTAGGTTTCAGTTGGGTGGGCGGCTTGG     @@CFFFFDHHFHHJJIJJGIJIII?FEH9CGHGIFIGII6?FGGIHEDD@B     NH:i:5  HI:i:1  AS:i:49 nM:i:0  NM:i:0 MD:Z:50  jM:B:c,-1       jI:B:i,-1
+ERR458493.774934        256     chrI    1968    0       51M     *       0       0       CAGCAACTTCGACTGGGTAGGTTTCAGTTGGGTGGGCGGCTTGGAACATGT     @@@DDFFAHFHCFBGGIGFHIGHIHBHEF@GI1??BCGGIF&lt;&gt;ECECEDC@     NH:i:5  HI:i:5  AS:i:50 nM:i:0  NM:i:0 MD:Z:51  jM:B:c,-1       jI:B:i,-1
+ERR458493.3295  256     chrI    1974    0       51M     *       0       0       CTTCGACTGGGTAGGTTTCAGTTGGGTGGGCGGCTTGGAACATGTAGTATT     ;=:D?=DDHAD&lt;DHI4CAEEC@D??FE@DEGFEG/;AEC@@&gt;DE;@CA&gt;BC     NH:i:5  HI:i:5  AS:i:50 nM:i:0  NM:i:0  MD:Z:51
+jM:B:c,-1       jI:B:i,-1</code></pre>
+<p>From these outputs, we notice that the headers are almost identical except for the version VN, which is 1.6 for BWA and 1.4 for STAR, and the <span class="citation">@PG</span> line which gives the tool used and the command used to run the tool to create the .bam file. We also notice that the files do not match the order which they show the reads, which is revealed by the QNAME being different for the reads between the files.</p>
+<p>Looking at the reads, we notice that the first 11 columns are the same, which are the 11 mandatory fields from class for the output files. However, columns 12 and on denote optional fields, which differ between the tools. The output of these different fields can be very important to different applications depending on the problem a researcher is attempting to solve. It is therefore necessary to understand what options are possible to help find the answers to questions in an efficient way. As we see below, there are many different tags that each tool has specific to it, and therefore it is a good idea to know how to apply both tools in case one tool contains a tag which the other tool does not have. These optional fields and their meanings are shown in the tables below.</p>
+<p>BWA Optional Fields - Taken from <a href="http://bio-bwa.sourceforge.net/bwa.shtml" class="uri">http://bio-bwa.sourceforge.net/bwa.shtml</a>:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Tag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>NM</td>
+<td>Edit distance</td>
+</tr>
+<tr class="even">
+<td>MD</td>
+<td>Mismatching positions/bases</td>
+</tr>
+<tr class="odd">
+<td>AS</td>
+<td>Alignment score</td>
+</tr>
+<tr class="even">
+<td>BC</td>
+<td>Barcode sequence</td>
+</tr>
+<tr class="odd">
+<td>X0</td>
+<td>Number of best hits</td>
+</tr>
+<tr class="even">
+<td>X1</td>
+<td>Number of suboptimal hits found by BWA</td>
+</tr>
+<tr class="odd">
+<td>XN</td>
+<td>Number of ambiguous bases in the referenece</td>
+</tr>
+<tr class="even">
+<td>XM</td>
+<td>Number of mismatches in the alignment</td>
+</tr>
+<tr class="odd">
+<td>XO</td>
+<td>Number of gap opens</td>
+</tr>
+<tr class="even">
+<td>XG</td>
+<td>Number of gap extentions</td>
+</tr>
+<tr class="odd">
+<td>XT</td>
+<td>Type: Unique/Repeat/N/Mate-sw</td>
+</tr>
+<tr class="even">
+<td>XA</td>
+<td>Alternative hits; format: (chr,pos,CIGAR,NM;)*</td>
+</tr>
+<tr class="odd">
+<td>XS</td>
+<td>Suboptimal alignment score</td>
+</tr>
+<tr class="even">
+<td>XF</td>
+<td>Support from forward/reverse alignment</td>
+</tr>
+<tr class="odd">
+<td>XE</td>
+<td>Number of supporting seeds</td>
+</tr>
+</tbody>
+</table>
+<p>STAR Optional Fields - Taken from <a href="https://physiology.med.cornell.edu/faculty/skrabanek/lab/angsd/lecture_notes/STARmanual.pdf" class="uri">https://physiology.med.cornell.edu/faculty/skrabanek/lab/angsd/lecture_notes/STARmanual.pdf</a>:</p>
+<table>
+<colgroup>
+<col width="50%"></col>
+<col width="50%"></col>
+</colgroup>
+<thead>
+<tr class="header">
+<th>Tag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>NH</td>
+<td>Number of reported alignments that contain the query in the current record</td>
+</tr>
+<tr class="even">
+<td>HI</td>
+<td>Query hit index</td>
+</tr>
+<tr class="odd">
+<td>AS</td>
+<td>Alignment score generated by aligner</td>
+</tr>
+<tr class="even">
+<td>nM</td>
+<td>Number of mismatches per (paired) alignment,</td>
+</tr>
+<tr class="odd">
+<td>NM</td>
+<td>Edit distance to the reference</td>
+</tr>
+<tr class="even">
+<td>MD</td>
+<td>String for mismatching positions</td>
+</tr>
+<tr class="odd">
+<td>jM</td>
+<td>Intron motifs for all junctions</td>
+</tr>
+<tr class="even">
+<td>jI</td>
+<td>Start and End of introns for all junctions</td>
+</tr>
+<tr class="odd">
+<td>MC</td>
+<td>CIGAR string for mate/next segment</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="q4" class="section level2">
+<h2>Q4</h2>
+<ol start="4" style="list-style-type: decimal">
+<li>Run bamqc on your BAM files (Note: this is a tool that’s not available in spack, but you can use it via /softlib/apps/EL7/BamQC/bin/bamqc after logging on to a compute node). You will need to figure out how to run this on your own (hint: /softlib/apps/EL7/BamQC/bin/bamqc –help).</li>
+</ol>
+<ul>
+<li>Describe 3 differences between the bamqc results for both the BWA and the STAR output files.</li>
+</ul>
+<p>To begin answering this question, we first make a new directory where we will store the bamqc output files for bwa and star separately using the commands <code>mkdir bamqc_bwa</code> and <code>mkdir bamqc_star</code>. We then execute the commands shown below to run bamqc on the bwa and star .bam files, respectively.</p>
+<pre class="bash"><code>/softlib/apps/EL7/BamQC/bin/bamqc /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam --outdir /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bamqc_bwa</code></pre>
+<pre class="bash"><code>/softlib/apps/EL7/BamQC/bin/bamqc /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/star_alignments/ERR458493.Aligned.sortedByCoord.out.bam --outdir /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bamqc_star</code></pre>
+<p>This tool produces an HTML and a .zip file. Using WinSCP, we transfer the HTML files to our computer, first copying it to the transfer_files folder we have in the SCU by navigating to it and using the command <code>cp /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bamqc_bwa/ERR458493.bwa.sorted_bamqc.html .</code> and <code>cp /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bamqc_star/ERR458493.Aligned.sortedByCoord.out_bamqc.html .</code> where the period sends the file to the current directory. Note that the bamqc file has to be sorted by coordinates for bamqc to work!</p>
+<p>When looking at the HTML files, we notice a few differences between the outputs. Under basic statistics, we find that the number of total sequences for bwa is 1093975 and for star is 1182716, with a percent primary alignment reads of 99.998 and 88.735, respectively. In addition, the bwa .bam file has a percent sequences unmapped of 2.962, compared to a percent sequences unmapped of 0 for the star .bam file. These sequences are discarded for variant call detection. There are more subtle differences between the numbers in the basic statistics, but these three are the most striking in our opinion. Focusing on the graphs, which include Genome Coverage, Chromosome Read Density, Soft Clip Length Distributions, Indel Frequencies, SNP Frequencies, SNP Frequencies by Type, and Mapping Quality Distribution, we first notice a subtle difference in the soft clip length distributions in which there is a small increase around a clip length of 2 for the star files, but no increase for the bwa files. The most striking visual difference between the two aligned .bam files is the indel frequencies, in which there is an extremely large peak corresponding to indels and deletions at a position in read of about 4 bp for the bwa HTML, whereas in the star bamqc this is nonexistent and the prevalence of indels and deletions does not begin until around 6 bp. Also, the SNP frequencies by type are not exactly the same, although they do follow similar distributions and we do not believe that there is a striking difference between the shapes of the distributions. Finally, there is an extreme difference between the mapping quality distributions between files. For bwa, most reads have a MAPQ value of 60, whereas for star, most reads have a value of 255. After reading the documentation on MAPQ values, we found that MAPQ scores range for the different alignment tools used. A MAPQ value of 60 for bwa represents a “good” score and a MAPQ value of 255 for STAR represents a “good” score.</p>
+</div>
+<div id="q5" class="section level2">
+<h2>Q5</h2>
+<ol start="5" style="list-style-type: decimal">
+<li>Explain the difference between alignment score and mapping quality in SAM/BAM files. How does the interpretation of the mapping quality field differ between STAR and BWA?</li>
+</ol>
+<p>The difference between the alignment score and mapping quality in SAM/BAM files is alignment score shows how similar the read is to the reference using a metric. The value of the metric increases with the number of matches and decreases with the number of mismatches and gaps. On the other hand, MAPQ is a metric that quantifies the confidence that the read comes from the reported position. It is possible to have high alignment score and low MAPQ score if the read aligns perfectly at multiple positions, and you can have low alignment score and high MAPQ score if the read aligns with mismatches but still the reported position is still much more probable than any other.</p>
+<p>The interpretation of the mapping quality field differs between STAR and BWA is described at <a href="https://www.biostars.org/p/178387/" class="uri">https://www.biostars.org/p/178387/</a> which says that STAR assigns good alignments, i.e. unique mappers, a MAPQ score of 255, whereas BWA, and many other tools, assigns good alignments a MAPQ score of 60. Therefore, what we have observed on the mapping quality distribution in Q4 is due to the nature of the scoring scheme, and is not a problem.</p>
+</div>
+<div id="q6" class="section level2">
+<h2>Q6</h2>
+<ol start="6" style="list-style-type: decimal">
+<li>What is the difference between a multi-mapping read and a split read? Find a read that has been split in STAR. How did BWA handle the mapping of that read?</li>
+</ol>
+<p>The difference between a multi-mapping read and a split read is that multi-mapped reads are the sequences that map more than one time on the genome and split reads occur when one portion of a next generation sequencing read map to one location and other portion of the same read map to a different location of a genome.</p>
+<p>To find a read that has been split in STAR, we need to look at the cigar string of a read. We know that a split read occurs when a read is mapped to different locations in the genome and this can be represented by the cigar string containing a large number of insertions, possibly representing an intron. This is denoted by “N” in the cigar string. Therefore, the command below shows us a split read in STAR.</p>
+<pre class="bash"><code>samtools view /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/star_alignments/ERR458493.Aligned.sortedByCoord.out.bam | awk &#39;$6 ~ /N/&#39; | head</code></pre>
+<p>In this command, <code>awk &#39;$6 ~ /N/&#39;</code> specifies that we want to search through the sixth column, the cigar string, for a pattern containing “N”, and return all lines which this occurs for. We show an example below of the first result, which we will use to compare to the BWA mapping of the read.</p>
+<pre class="bash"><code>ERR458493.552967        16      chrI    140     255     12M61232N37M2S  *       0       0       CCACTCGTTCACCAGGGCCGGCGGGCTGATCACTTTATCGTGCATCTTGGC     BB?HHJJIGHHJIGIIJJIJGIJIJJIIIGHBJJJJJJHHHHFFDDDA1+B     NH:i:1  HI:i:1
+AS:i:41 nM:i:2  NM:i:2  MD:Z:9A0C38     jM:B:c,2        jI:B:i,152,61383</code></pre>
+<p>Next, we look at this read for the BWA .bam file, which is possible given the identifier QNAME. We cd into the bwa_alignments directory and run the following command which shows us how BWA handled the mapping of the read.</p>
+<pre class="bash"><code> samtools view /home/nib4003/ANGSD_2021_hw/Aligning_FASTQ_reads_and_interpreting_the_output/bwa_alignments/ERR458493.bwa.sorted.bam | grep &#39;ERR458493.552967&#39;</code></pre>
+<p>The output is shown below.</p>
+<pre class="bash"><code>ERR458493.552967        16      chrI    61381   60      9S42M   *       0       0       CCACTCGTTCACCAGGGCCGGCGGGCTGATCACTTTATCGTGCATCTTGGC     BB?HHJJIGHHJIGIIJJIJGIJIJJIIIGHBJJJJJJHHHHFFDDDA1+B     NM:i:1  MD:Z:40A1
+AS:i:40 XS:i:0</code></pre>
+<p>We notice that the cigar strings are extremely different. In STAR, the cigar string is 12M61232N37M2S, which means 12 matches or mismatches, 61232 insertions, 37 matches or mismatches, and 2 clips. In BWA, the cigar string is 9S42M which means 9 clips and 42 matches or mismatches. BWA completely disregards the long string of indels.</p>
+</div>
+<div id="q7" class="section level2">
+<h2>Q7</h2>
+<ol start="7" style="list-style-type: decimal">
+<li>How can you remove the unmapped reads from the BWA output? (hint: go back to the notes where FLAG values were explained)</li>
+</ol>
+<p>It is possible to remove unmapped reads from the BWA output using the reference using the u flag, which is discussed in the reference <a href="https://www.biostars.org/p/56246/" class="uri">https://www.biostars.org/p/56246/</a>. This flag is represented by a specific bit, which is 4, and specifies that the query sequence itself is unmapped. This allows us to get all unmapped reads using the command below for a generic bam file.</p>
+<pre class="bash"><code>samtools view -b -f 4 file.bam &gt; unmapped.bam</code></pre>
+<p>We can also receive all mapped reads using the command below for a generic bam file where the change from lowercase “f” to uppercase “F” which skips the alignments for the specific flag (e.g. all unmapped reads, leaving only the mapped reads).</p>
+<pre class="bash"><code>samtools view -b -F 4 file.bam &gt; mapped.bam</code></pre>
 </div>
 
 

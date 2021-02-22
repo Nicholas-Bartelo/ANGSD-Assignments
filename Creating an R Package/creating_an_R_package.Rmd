@@ -1,0 +1,267 @@
+---
+title: "Creating an R Package"
+author: "Nick Bartelo"
+date: "2/21/2021"
+output: html_document
+---
+
+## Q1
+
+1. Set up a new package.
+
+First, we have to make sure we know where we are and if we want to be in this directory. Therefore, we can run the code below to figure this out. 
+
+```{r}
+getwd()
+```
+
+To set up a new package, we need to use the following packages:
+
+```{r}
+# install.packages('devtools')
+library('roxygen2')
+library('devtools')
+```
+
+Next, we use the command `create('readInfastQC')` which creates a new directory with two folders called 'R' and 'man' and a file called DESCRIPTION. 
+
+```{r,eval=FALSE}
+create('readInfastQC')
+```
+
+We then go into the 'R' folder and create a new R script which we call 'reading_in_function.R'. We paste the function from the homework into this file and then we process the documentation using the command below. First, we have to set the working directory such that we are inside the package.
+
+```{r,eval=FALSE}
+setwd('C:/Users/nicky/OneDrive/Documents/ANGSD-Assignments-For-Class/Creating an R Package/ANGSD-Assignments-For-Class/Creating an R Package/readInfastQC')
+document()
+```
+
+This generates a new .Rd file in the 'man' directory and adds a file called NAMESPACE to the main directory. The next question goes on about this.
+
+## Q2
+
+2. Use the reading_in function (not shown but was given in the homework) as your first function in the newly generated package. Describe the steps you have to take in order to make that function part of the package.
+
+First, we copied the function and header information from the homework assignment and pasted it to the reading_in_function.R file we created. Next, we used the command `devtools::document()`, shown above as `document()`, to create a new .Rd file which was named reading_in.Rd and is found in the man folder. This .Rd file contains the information from the header of the .R file. 
+
+We also have to update the DESCRIPTION file fields of Title, Author, Description, Email, Lazyload, and we decided to leave license alone but this could be of use in the future. Also, the version number is useful for continuous work on a package, which is found in this file. We discuss the depends section below.
+
+## Q3
+
+3. Make sure to adapt the DESCRIPTION file to note all the packages that this function depends on.
+
+We click on the DESCRIPTION file we have already mentioned and type Depends: as an argument to note the packages the function depends on. The packages we list are devtools for installation purposes, dplyr for working with the data, magrittr for the use of %>%, and ggplot2 to graph. 
+
+## Q4
+
+Load the function into your workspace and use it to extract the values of FastQC’s diagnostic “Per base sequence quality” from a single fastqc_data.txt file into an Robject.
+* Each FastQC run should have produced such a file (usually stored in the zipped output folder) – it’s fine to download these files to your computer.
+* The command would go into the Rmd document that will become your vignette.
+
+We had to set the working directory to that of the parent directory of the package using `setwd()`. By using the code below, we successfully loaded the function in. 
+
+```{r,eval=FALSE}
+setwd('C:/Users/nicky/OneDrive/Documents/ANGSD-Assignments-For-Class/Creating an R Package/ANGSD-Assignments-For-Class/Creating an R Package')
+install('readInfastQC')
+```
+
+We then also loaded in all packages the function depends on.
+
+```{r,eval=FALSE}
+setwd('C:/Users/nicky/OneDrive/Documents/ANGSD-Assignments-For-Class/Creating an R Package/ANGSD-Assignments-For-Class/Creating an R Package/readInfastQC')
+devtools::load_all()
+```
+
+Next, we transferred over 4 fastqc_data.txt files from the SCU using WinSCP corresponding to gierlinski wt1 replicates 1 and 2, and gierlinski wt3 replicates 3 and 4 to the computer. We created a destination in the package called /inst/ext_data/ where we put all 4 files, as discussed in the introduction to R and RStudio notes. Below we output the arguments of the initial function to show that it takes in a file and returns the Per base sequence quality data.
+
+```{r,eval=FALSE}
+args(reading_in_jake)
+```
+
+Since we are using Windows, the 'sed' command does not work for us. Therefore, we use an only R based version of the function created by amazing coder Jake Sauter. This function is shown below.
+
+```{r,eval=FALSE}
+reading_in_jake <- function(file, test = "Per base sequence quality"){
+
+  ## generate the string that will be used for the file parsing
+  # Read in all the lines of the file
+  lines <- readLines(file)
+  # Locate the position of the header line for the test
+  starting_line <- grep(test,lines)
+  # Locate all potential "end module" lines
+  ending_lines <- grep(">>END_MODULE",lines)
+  # Choose the "end module" line that pairs with the module
+  ending_line <- min(ending_lines[ending_lines>starting_line])
+  # Isolate only the lines of the test section
+  data <- lines[(starting_line+1):(ending_line-1)]
+  # Concatenate all lines, separated by the newline character
+  data <- paste(data, collapse = '\n')
+  # Pass data as one string to data.table::fread,
+  # and make the result a data frame
+  df <- data.table::fread(data, header=TRUE)
+  df <- as.data.frame(df)
+  return(df)
+}
+```
+
+We show below how the reading_in_jake function works for gierlinski wt1 replicate 1. We simply pass the file in and it populates the dataframe desired.
+
+```{r,eval=FALSE}
+reading_in_jake('C:/Users/nicky/data_for_rpackage/gierlinksi_wt1_replicate1_fastqc_data.txt')
+```
+
+
+## Q5
+
+5. Explain the logic of the function’s sed command.
+
+The logic of the function's sed command is found in the line of the function `syscommand <- paste0("sed -n '/", test, "/,/END_MODULE/p' ", file, " | grep -v '^>>'")`. The sed command is a powerful tool that can perform functions on a file such as searching, find and replace, insertion, or deletion. The sed command in unix supports regular expression, which allows it perform complex pattern matching. 
+
+In order to print only the replaced lines of a file, sed uses the -n option along with the /p print flag to display only the lines of interest within the '/.../' pattern. Here the -n option suppresses the duplicate rows generated by the /p flag and prints the replaced lines only one time. If we instead used -n alone without /p, then our sed command would not print anything. By using the sed command, we print out everything between in the fastq.txt file between the test of interest, in our case the Per base sequence quality, and the END_MODULE regex, which gives us the correct data we wanted to extract from our file. 
+
+However, as previously stated we used a different function to achieve the same thing created by Jake Sauter.
+
+## Q6 
+
+6. Now go back to the function’s code and add a variable to the function that adds an additional column to the resulting data frame containing a user-specified sample name (e.g. “WT_1_ERR458493”). i.e., the function should get at least one more argument.
+
+To add a new argument to the function, we first go to the reading_in_function_jake.R file and we copy this function. We then create a new .R for the function which we will add a new argument `sample_number` to the function such that we get what is shown in the code below. We also add this parameter to the header of the file to explain what the new parameter is doing using the @param syntax and then writing a few sentences about what is expected from the user for this argument.
+
+```{r,eval=FALSE}
+reading_in_jake_updated <- function(file, test = "Per base sequence quality", sample_number)
+```
+
+Next, we add the following lines of code to the function. The first line creates a variable for the user input argument. The second line appends this argument as a column to the dataframe such that all rows contain the value input by the user.
+
+```{r,eval=FALSE}
+input_sample_number <- sample_number
+df$sample_number <- rep(input_sample_number, times = length(df))
+```
+
+Our updated function is shown below in total.
+
+```{r,eval=FALSE}
+reading_in_jake_with_sample <- function(file, test = "Per base sequence quality", sample_number){
+
+  ## generate the string that will be used for the file parsing
+  # Read in all the lines of the file
+  lines <- readLines(file)
+  # Locate the position of the header line for the test
+  starting_line <- grep(test,lines)
+  # Locate all potential "end module" lines
+  ending_lines <- grep(">>END_MODULE",lines)
+  # Choose the "end module" line that pairs with the module
+  ending_line <- min(ending_lines[ending_lines>starting_line])
+  # Isolate only the lines of the test section
+  data <- lines[(starting_line+1):(ending_line-1)]
+  # Concatenate all lines, separated by the newline character
+  data <- paste(data, collapse = '\n')
+  # Pass data as one string to data.table::fread,
+  # and make the result a data frame
+  df <- data.table::fread(data, header=TRUE)
+  df <- as.data.frame(df)
+
+  # New column with sample names to specify where each sample came from
+  input_sample_number <- sample_number
+  df$sample_number <- rep(input_sample_number, times = length(df))
+  return(df)
+}
+```
+
+Below we show that we added a new argument to the file called sample_number.
+
+```{r,eval=FALSE}
+args(reading_in_jake_with_sample)
+```
+
+Below we show that the new function works on our wt1 replicate1 sample.
+
+```{r,eval=FALSE}
+reading_in_jake_with_sample('C:/Users/nicky/data_for_rpackage/gierlinksi_wt1_replicate1_fastqc_data.txt', sample_number = 'wt1_replicate1')
+```
+
+## Q7
+
+7. Use your updated function to read in the FastQC results of at least 4 fastq files that should cover 2 biological replicates and 2 technical replicates of each. Make sure to keep track of the sample name in the new Robjects you’re creating.
+* It’s fine to use an R-appropriate version of a for-loop for this (go back to the course notes for a refresher).
+
+Below we create a data.frame for all files, appropriately passing in a unique identifier for each file in the sample_number argument. We name each new data.frame such that they are representative of their data and so that we can combine them in the next step.
+
+```{r,eval=FALSE}
+wt1_replicate1 <- reading_in_jake_with_sample('C:/Users/nicky/data_for_rpackage/gierlinksi_wt1_replicate1_fastqc_data.txt', sample_number = 'wt1_replicate1')
+
+wt1_replicate2 <- reading_in_jake_with_sample('C:/Users/nicky/data_for_rpackage/gierlinksi_wt1_replicate2_fastqc_data.txt', sample_number = 'wt1_replicate2')
+
+wt3_replicate3 <- reading_in_jake_with_sample('C:/Users/nicky/data_for_rpackage/gierlinksi_wt3_replicate3_fastqc_data.txt', sample_number = 'wt3_replicate3')
+
+wt3_replicate4 <- reading_in_jake_with_sample('C:/Users/nicky/data_for_rpackage/gierlinksi_wt3_replicate4_fastqc_data.txt', sample_number = 'wt3_replicate4')
+```
+
+## Q8 
+
+8. Combine all these data.frames into one (check out rbind(); if you’ve generated a list in the previous exercise, also look into the do.call() function). Save that composite data frame as an .rda object (with the save() function) giving it the same name as the name of the Robject (e.g. combined_df.rda)
+
+To combine all data.frames into one, we use the rbind() function. This code is shown below. The resulting dataframe is 204 rows long, 51 for each of the 4 dataframes, each labeled with the correct sample used.
+
+```{r,eval=FALSE}
+combined_df <- rbind(wt1_replicate1, wt1_replicate2, wt3_replicate3, wt3_replicate4)
+```
+
+Below we save this dataframe to be used by any user trying to use the package. We then move the saved .rda to a newly created data folder. The reason for this is because it specifies to do so in the document https://r-pkgs.org/data.html.
+
+```{r,eval=FALSE}
+save(combined_df, file = "combined_df.rda")
+```
+
+## Q9
+
+9. The goal is to include that combined data frame as a data object with your package.
+* Figure out where to store the .rda file within the package infrastructure.
+* Document your object. Where do you keep the documentation of the data file?
+
+A better way than using save, in our opinion, is to use the usethis::usedata() function shown in the following code block. This places the .rda file into the data folder for use by anyone using the package.
+
+```{r,eval=FALSE}
+usethis::use_data(combined_df, internal=TRUE)
+```
+
+To document this function, we navigate into the R folder and create a new R script, where we create the file combined_df.R, which holds the documentation for our dataset. In this file, we define what is in the dataset, add a description of all the columns, and add the source where we got the gierlinski data from.
+
+## Q10
+
+10. How do you build your package?
+* You can include the answer to this in the vignette, too, for the sake of the homework answers all being kept in one place. Make sure to set the code chunk option eval=FALSE though (why?).
+
+To build the package, we look at the documentation using the command `?devtools::build`. From the description, we find that building converts a package source directory into a single bundled file. If binary = FALSE this creates a tar.gz package that can be installed on any platform, provided they have a full development environment (although packages without source code can typically be installed out of the box). If binary = TRUE, the package will have a platform specific extension (e.g. .zip for windows), and will only be installable on the current platform, but no development environment is needed. The arguments include the package to use, path to produce the package, whether to produce a binary or source version of the package, whether to build PDF vignettes or manual for source packages, additional arguments that can be passed to R CMD build, and whether or not to suppress the output from the function. 
+
+Therefore, we can build the package using the following code. The tar.gz is then output in the parent directory of the pacakge.
+
+```{r,eval=FALSE}
+devtools::build(pkg = "C:/Users/nicky/OneDrive/Documents/ANGSD-Assignments-For-Class/Creating an R Package/ANGSD-Assignments-For-Class/Creating an R Package/readInfastQC", vignettes = TRUE)
+```
+
+## Q11
+
+11. Make a ggplot2-based plot using the combined data frame. Try to mimick the basic features of the example plot below, but feel free to change the color palette, remove the grey background and other details.
+
+To make the ggplot2-based plot using the combined data frame, we have to do a few manipulations. First, we have to make a new column that specifies if the samples are from wt1 or wt3. We do this using the following code.
+
+```{r,eval=FALSE}
+combined_df$group = 'wt1'
+combined_df$group[combined_df$sample_number == "wt3_replicate3"] <- 'wt3'
+combined_df$group[combined_df$sample_number == "wt3_replicate4"] <- 'wt3'
+head(combined_df)
+```
+
+Next, we have to rename the column #Base to Base using the code below. This will allow us to graph the Base column on the x-axis.
+
+```{r,eval=FALSE}
+names(combined_df)[names(combined_df) == "#Base"] <- "Base"
+```
+
+
+Next, we can graph them using the following code. This plot is taking the combined_df data, plotting the base on the x-axis, the mean on the y-axis, coloring the data by the sample number, producing the data in a scatterplot format, and facet wrap is used to separate the wt1 samples from the wt3 samples. This code outputs a graph with a panel for wt1 on the left with wt1 replicate 1 colored orange and wt1 replicate 2 colored green. On the right, a panel for wt3 is shown with wt3 replicate three in blue and wt3 replicate 4 in purple. 
+
+```{r,eval=FALSE}
+ggplot(combined_df, aes(x=Base, y=Mean, color=sample_number)) + geom_point() + facet_wrap('group')
+```

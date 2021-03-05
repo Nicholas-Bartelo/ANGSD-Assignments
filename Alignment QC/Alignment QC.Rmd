@@ -1,0 +1,47 @@
+---
+title: "Alignment QC"
+author: "Nick Bartelo"
+date: "3/5/2021"
+output: html_document
+---
+
+## Q1 
+
+1. Which problem of mRNA-sequencing can be detected with FastQC? Explain how.
+* rRNA contamination
+* mRNA degradation
+* genomic DNA contamination
+
+The problem of rRNA contamination can be detected with FastQC by looking at the per sequence GC content and overrepresented sequences of the report given by FastQC. rRNA have high sequence homology. A short pipeline used in the resource https://www.biostars.org/p/346252/ shows the steps that can be taken to figure out the actual reason for the GC content graph and overrepresented sequences. One important takeaway is that the rRNA contamination could result in the per sequence GC content having multiple peaks throughout the distribution, whereas a contamination by a different species would most likely result in a bimodal distribution. It is possible to filter out a portion of the rRNA contamination using the tool SortMeRNA which takes as input a file of reads (fasta or fastq format) and one or multiple rRNA database file(s), and sorts apart rRNA and rejected reads into two files specified by the user - https://bioinfo.lifl.fr/RNA/sortmerna/. 
+
+The problem of mRNA degradation can NOT be detected until after we map the sequence back to the reference genome.
+
+The problem of Genomic DNA contamination can NOT be detected with FastQC until reads are aligned with reference genome in which we can then check the gene diversity and gene body coverage using tools like QoRTs which we show below.
+
+## Q2
+
+2. Generate plots for (a) assessing the read distribution across exons/introns/etc. and (b) to determine the average gene body coverage. You can use either tool that we mentioned in class.
+
+The tool we use is QoRTs. To use this tool, we download the .jar file from github to a newly created folder using the command `mkdir alignment_qc` to make the folder and `wget http://hartleys.github.io/QoRTs/QoRTs.jar`. We then executed the command `spack load qorts` so that it is downloaded on the SCU. Next, we copied the bam file to the folder and the .gtf file using the commands `cp /home/frd2007/ANGSD_2019/alignment_qc/bams/WT_1_Aligned.sortedByCoord.out.bam .` and `cp /home/luce/angsd/referenceGenomes/sacCer3.sgd.gtf .` To use qorts, we use the following code. 
+
+```{bash,eval=FALSE}
+java -jar QoRTs.jar QC --singleEnded --generatePdfReport WT_1_Aligned.sortedByCoord.out.bam sacCer3.sgd.gtf /home/nib4003/ANGSD_2021_hw/alignment_qc/
+```
+
+The resulting output is many files, with two we will use in particular, "QC.makeMultiplot.R" and "QC.multiPlot.pdf". The tags --singleEnded and --generatePdfReport correspond to the aligned reads being single stranded and the generation of multiple graphs in a pdf format that show the outcome of running QoRTs. We transfer the two files to the computer using WinSCP. Below we show screenshots for the generated plots for assessing the read distribution across exons/introns/etc. from QoRTs. We see that the read length distribution is almost entirely at about 50 bp read length.
+
+```{r}
+knitr::include_graphics('C:/Users/nicky/OneDrive/Documents/ANGSD-Assignments-For-Class/Alignment QC/ANGSD-Assignments-For-Class/Alignment QC/read_length_distribution.png')
+```
+
+Below we show the generated plots for determining the average gene body coverage. This plot shows a 3' bias as a larger proportion of reads are found in the 3' percentiles. 
+
+```{r}
+knitr::include_graphics('C:/Users/nicky/OneDrive/Documents/ANGSD-Assignments-For-Class/Alignment QC/ANGSD-Assignments-For-Class/Alignment QC/average_gene_body_coverage.png')
+```
+
+## Q3
+
+3. Why is a 3’ bias in the gene coverage plot evidence of RNA degradation? What type of enrichment step is particularly prone to overrepresenting the 3’ ends?
+
+The 3' bias in the gene coverage plot is evidence of RNA degradation because by following standard fragmentation procedures during library preparation a degraded sample will result in lower complexity libraries and thus higher duplication rates. The proportion of reads is shown to be much greater on the 3' end than the 5' end, showing the prevalence of these lower complexity libraries. Also, a 3' bias is seen specifically with poly(A) enrichment due to the poly(A) tails being attached to the 3' end of the mRNA and this is what the protocol actively searches for to find the mRNA. Therefore, we see a larger proportion of reads corresponding to the 3' end.

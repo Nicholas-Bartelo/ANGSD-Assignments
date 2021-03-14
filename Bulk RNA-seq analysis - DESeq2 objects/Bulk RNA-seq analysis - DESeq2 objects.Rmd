@@ -1,0 +1,111 @@
+---
+title: "RNA-seq analysis - DESeq2 objects"
+author: "Nick Bartelo"
+date: "3/14/2021"
+output: html_document
+---
+
+# Understanding DESeq2 S4 objects.
+
+## Q1 
+
+1. Use the functions we’ve described to inspect the objects that are returned by rlog() and DESeqDataSetFromMatrix, respectively. You can also try to just type their name in the console and hit return and see what happens. Describe at least 2 similarities and 2 differences between them in regards to their content and the downstream functions you may have to use to interact with them. Feel free to use any additional documentation available, just let us know how you found each answer.
+
+To being, we first load the file from the practical from week 7, which we have conveniently placed in the directory for this R project, and other libraries we will use.
+
+```{r}
+library(DESeq2)
+library(magrittr)
+load("RNAseqGierlinski.RData")
+```
+
+Below we look at the documentation for DESeqDataSetFromMatrix. This tells us how to generate a DESeqDataSet. From the documentation, "DESeqDataSet is a subclass of RangedSummarizedExperiment, used to store the input values, intermediate calculations and results of an analysis of differential expression. The DESeqDataSet class enforces non-negative integer values in the "counts" matrix stored as the first element in the assay list." We also look at the class of the output of the object returned by DESeqDataSetFromMatrix and find that it is a DESeqDataSet, which we expect from the documentation above. 
+
+```{r}
+?DESeqDataSetFromMatrix
+class(DESeq.ds)
+```
+
+Below we look at the documentation for rlog. According to the documentation, rlog "transforms the count data to the log2 scale in a way which minimizes differences between samples for rows with small counts, and which normalizes with respect to library size. The rlog transformation produces a similar variance stabilizing effect as varianceStabilizingTransformation, though rlog is more robust in the case when the size factors vary widely. The transformation is useful when checking for outliers or as input for machine learning techniques such as clustering or linear discriminant analysis. rlog takes as input a DESeqDataSet and returns a RangedSummarizedExperiment object." We also look at the class of the output of the object returned by rlog and find that it is a DESeqTransform, which is used to wrap up the results into a class for downstream methods (found using ?DESeqTransform). 
+
+```{r}
+?rlog
+class(DESeq.rlog)
+```
+
+One difference between the two is that DESeqDataSetFromMatrix creates an object that is a DESeqDataSet and rlog creates an object that is a DESeqTransform, both of which are described above. One similarity between the two objects are that they both are S4 objects which contain the slots rowRanges, colData, assays, NAMES, elementMetadata, and metaData, with one of the differences between the information in these slots being that the DESeq.rlog rowRanges elementMetadata slot contains information whereas the DESeq.ds rowRanges elementMetadata slot contains a matrix of zeros. Another difference is that in the assays -> data -> listdata slot, we have created multiple matrices for each operation we performed, logging and normalizing, on our raw count data that are not included in the DESeq.rlog object because these processes are already completed when calling rlog().
+
+One difference relating to downstream functions is that we normalize and take the log transform of the raw counts in both situations, but only DESeq.rlog accounts for heteroskedasticity using variance stabilization of the normalized read counts. This results in good proxies of the real expression strength of a given gene across different samples. One similarity between the two relating to downstream functions is that both can be used to show how well the actual values correlate with each other per sample and gene by creating a scatterplot of the genes for two samples. If the DESeq.ds data shows poor correlation between replicates, the DESeq.rlog values may be necessary to plot to show that the issue is fixed, allowing for differential expression analysis in the next step. 
+
+## Q2 
+
+2. How can you extract the expression values stored in either object?
+
+It is possible to extract the expression values stored in DESeq.ds by using the command below. We only output the first 6 rows using head(). We see that DESeq.ds has its data retrieved when using the counts() function. If we wanted to normalize the read counts we could pass noramlized = 'TRUE' as an argument. 
+
+```{r}
+head(counts(DESeq.ds))
+```
+
+It is possible to extract the expression values stored in DESeq.rlog by using the command below. We only output the first 6 rows using head(). We see that DESeq.rlog has its data retrieved when using the assay() function. 
+
+```{r}
+head(assay(DESeq.rlog))
+```
+
+## Q3
+
+3. How can you add an additional matrix named “my_personal_normalization” to either object?
+
+To add an additional matrix named "my_personal_normalization" to DESeq.ds we use the code below. Note we only normalized the raw count data without taking the log first.
+
+```{r}
+assay(DESeq.ds, "my_personal_normalization") <- counts(DESeq.ds, normalized = TRUE)
+```
+
+We show below that this created a new matrix with the values below. 
+
+```{r}
+head(DESeq.ds@assays@data@listData$my_personal_normalization)
+```
+
+To add an additional matrix named "my_personal_normalization" to DESeq.rlog we use the code below.
+
+```{r}
+assay(DESeq.rlog, "my_personal_normalization") <- assay(DESeq.rlog)
+```
+
+We show below that this created a new matrix with the same values as previously shown in question 2. 
+
+```{r}
+head(DESeq.rlog@assays@data@listData$my_personal_normalization)
+```
+
+# Inspecting the source code of R functions
+
+## Q1 
+
+1. Read the instructions at https://rfaqs.com/source-code-of-r-method/. Note that the getMethods() described there has been deprecated and has been replaced by findMethods(), which does not require you to specify the object type for which you’re retrieving the code. Include the source code of the following DESeq2 functions in your homework’s html.
+
+* rlog()
+* estimateDispersions()
+* rlogData() – this is a non-exported function from DESeq2
+
+To show the source code for rlog, we simply have to call its name in a code block. 
+
+```{r}
+rlog
+```
+
+To show the source code for estimateDispersions, we have to use the following code. 
+
+```{r}
+DESeq2:::estimateDispersions.DESeqDataSet
+```
+
+To show the source code for rlogData, we have to use the following code.
+
+```{r}
+DESeq2:::rlogData
+```
+

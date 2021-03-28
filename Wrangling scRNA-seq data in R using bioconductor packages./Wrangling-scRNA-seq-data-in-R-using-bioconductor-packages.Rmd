@@ -1,0 +1,161 @@
+---
+title: "scRNA Assignment"
+author: "Nick Bartelo"
+date: "3/28/2021"
+output:
+  html_document: default
+---
+
+Download the count matrix and read it into R.
+Note: given the size of the matrix, you may have to do the analysis on the server, where you will not have access to RStudio, but to the console (just type R after logging in to an interactive session, spack load -r /bxc56dm, and switching to your designated folder). To obtain images for your Rmarkdown report, you could, for example, opt to write and compile the Rmd on your laptop. This would mean that you should set the chunk options to eval=FALSE because you’re not going to actually execute the code on your machine. To include images this way, you would have to compute them on the server, download them via scp and integrate them into the report via the common markdown syntax: ![](path-to-image). For more info on code chunks, see here (Links to an external site.). ALTERNATIVELY, without changing the chunk options, you could compile the html on the server where rmarkdown::render("input.Rmd") (within R) will carry out the rendering that happens when you click “Knit” in RStudio.
+
+## Q1
+
+1. Create a SingleCellExperiment object. http://bioconductor.org/books/release/OSCA/data-infrastructure.html is useful in getting to know the capabilities of the bioconductor objects related to scRNA-seq).
+
+We begin by downloading the count matrix and using WinSCP to transfer it to the SCU in a new directory at /home/nib4003/ANGSD_2021_hw/Wrangling_scRNA-seq_data_in_R_using_bioconductor_packages. We then unzip it using the command `gzip -d WT-1.dge.txt.gz` and use WinSCP to transfer this back to the computer. Next, we execute the commands for use in our document.
+
+```{r}
+#install.packages('BiocManager')
+#BiocManager::install('SingleCellExperiment')
+#BiocManager::install(c('scater', 'scran', 'uwot'))
+library(SingleCellExperiment)
+```
+
+Next, we import the count matrix. We use row.names = 1 in order to name the rows by the genes. We also transform this object into a matrix.
+
+```{r}
+library(ggplot2)
+library(magrittr)
+counts_matrix <- paste0("WT-1.dge.txt") %>% read.table(., header=TRUE, row.names = 1)
+counts_matrix <- as.matrix(counts_matrix)
+```
+
+Below we create the single cell experiment object using our counts matrix.
+
+```{r}
+sce <- SingleCellExperiment(assays = list(counts = counts_matrix))
+```
+
+## Q2
+
+2. Show a snippet of the count matrix that is now part of the SCE object. 
+
+We use the following code to show some of the information about the single cell experiment object we created. We also show part of the count matrix of this sce object. We see the count matrix is mostly made up of zeros which is expected in scRNA-seq analysis.
+
+```{r}
+sce
+sce_count_matrix <- counts(sce)
+sce_count_matrix[1:10, 1:10]
+```
+
+## Q3
+
+3. Calculate the numbers of reads (~ sequencing depths) for the first five cells, i.e. you should have 5 values in the end.
+
+Since each column represents a different cell, we can find the number of reads for a cell by adding all the values in a column. The first five sequencing depths are shown below.
+
+```{r}
+colSums(sce_count_matrix[, 1:5])
+```
+
+## Q4
+
+4. How many genes have non-zero counts in the first five cells? 
+
+Below we show the number of genes having non-zero counts for the first five cells. We do this by counting the number of times a non-zero value occurs in a column, which represents a cell.
+
+```{r}
+colSums(sce_count_matrix[, 1:5] != 0)
+```
+
+## Q5
+
+5. If you were to change the row- and column-names of the original matrix, how could you keep track of the original names?
+
+If we were to change the row- and column-names of the original matrix, we could keep track of the original names by storing the genes (rows) using rowData and store the cells in the colData, both as dataframes.
+
+```{r}
+library(scater)
+assays(sce)
+colnames_cells <- data.frame(colnames(sce))
+
+sce <- SingleCellExperiment(assays = list(counts = counts_matrix),
+    colData = colnames_cells, rowData = data.frame(rownames(sce)))
+```
+
+## Q6
+
+6. Following the scater workflow https://bioconductor.org/packages/release/bioc/vignettes/scater/inst/doc/overview.html#3_quality_control, generate histograms or density plots of (a) the total number of UMI counts per cell and (b) total number of expressed genes. Describe in your own words what the two different histograms show and what that means for the data at hand. For another extra-credit point, you could generate a histogram for “% mitochondrial reads”.
+
+Below we run addPerCellQC which outputs columns expressing some of the properties of our data such as the total number of UMI counts per cell and total number of expressed genes. We print the first few rows of the data and plot the UMI counts per cell vs. total number of expressed genes below.
+
+```{r}
+sce <- addPerCellQC(sce, 
+    subsets=list(Mito=grep("mt-", rownames(sce))))
+head(sce@colData)
+plotColData(sce, x = "sum", y="detected")
+```
+
+Below we generate a histogram for the total number of UMI counts per cell. This histogram shows that the majority of cells had a large total UMI number, and that there is a peak for these values, followed by a long tail to the right. Since we know that both low and high numbers of reads are problematic, we will most likely need to cut more cells from the final analyses with high UMI numbers. This tends to happen when droplets contain more than one cell and could be the reason for the right tailed skew, as more droplets could have had more than one cell than less than one cell, which would result in a low UMI count.
+
+```{r}
+hist(log10(sce$sum), breaks = 25)
+```
+
+Below we generate a histogram for the total number of cells expressing a gene. This histogram is similar to that of the histogram above in that they both have a peak towards the beginning of the distribution and a tail to the right. Again, this could mean that many droplets contained multiple cells, resulting in a larger number of non-zero genes associated with the cells. 
+
+```{r}
+hist(log10(sce$detected), breaks = 25)
+```
+
+
+## Q7
+
+7. Decide on some threshold for either QC parameter and remove the corresponding cells.
+
+Take out all cells we use the isOutlier function. This is a convenience function which determines the values in a numeric vector which are outliers based on the median absolute deviation (MAD). We set type = both because this filters from both ends, i.e., cells with a total number of UMI counts too low and cells with a total number of UMI counts too high. We also specify the log counts at 3 MAD should be filtered, not the raw counts. We assign the results to a filtered sce.
+
+```{r}
+keep.total <- !isOutlier(sce@colData$sum, type="both", log=TRUE)
+filtered <- sce[,keep.total]
+```
+
+## Q8
+
+Using the filtered data set, normalize the counts using scran and scater and judge whether the size factors calculated by computeSumFactors show the expected behavior as shown in the figure below. How can you access the normalized data matrix?
+
+Below we compute the size factors and also normalize and take the logarithm of the counts. These size factors do show the expected behavior, as most are clumped between about 500 and 10000 which is what we see from the figure. Our method of filtering may have resulted in keeping data with more lower values of size factors than the method used to create the picture in the assignment.
+
+```{r}
+library(scran)
+filtered <- computeSumFactors(filtered) 
+filtered <- logNormCounts(filtered)
+```
+
+```{r}
+plotColData(filtered, x = "total", y="sizeFactor")
+```
+
+
+The normalized data matrix can be accessed using the code below. Note that this is the log of the normalized data.
+
+```{r}
+assays(filtered)
+logcounts(filtered[1:10, 1:10])
+```
+
+## Q9
+
+9. What types of cells do you think you’re looking at?
+
+To try and answer this question we run a PCA and visualize the results. 
+
+```{r}
+filtered <- runPCA(filtered)
+str(reducedDim(filtered, "PCA"))
+plotReducedDim(filtered, dimred = "PCA")
+```
+
+We see that PC1 and PC2 correspond to MT-CO3 and MT-CO2. We therefore look these up in the human protein atlas http://www.proteinatlas.org/ENSG00000198938-MT-CO3 and https://www.proteinatlas.org/ENSG00000198712-MT-CO2/celltype and find that single cell type specificity on this page for both are cardiomyocytes. Therefore, we believe the cells are cardiomyocytes.
+
